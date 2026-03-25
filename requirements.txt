@@ -1,0 +1,25 @@
+# Django Framework
+Django>=5.0
+
+# YOLO and Deep Learning
+ultralytics>=8.0.0
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Image/Video Processing
+opencv-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# API and Serialization
+djangorestframework>=3.14.0
+
+# Database (optional PostgreSQL support)
+psycopg2-binary>=2.9.0
+
+# Async Processing (optional)
+celery>=5.3.0
+redis>=4.5.0
+
+# Development
+python-dotenv>=1.0.0
