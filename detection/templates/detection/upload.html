@@ -1,0 +1,339 @@
+{% extends 'detection/base.html' %}
+{% load static %}
+
+{% block title %}Upload{% endblock %}
+
+{% block content %}
+<section class="upload-section py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <!-- Header -->
+                <div class="text-center mb-5">
+                    <h1 class="display-5 fw-bold mb-3">
+                        <i class="bi bi-cloud-upload text-gradient"></i>
+                        Upload Media
+                    </h1>
+                    <p class="lead text-muted">
+                        Upload images or videos for occlusion-aware object detection
+                    </p>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Upload Area -->
+                    <div class="col-lg-7">
+                        <div class="upload-card">
+                            <form id="uploadForm" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                
+                                <!-- Dropzone -->
+                                <div class="dropzone" id="dropzone">
+                                    <input type="file" id="fileInput" name="file" accept="image/*,video/*" hidden>
+                                    <div class="dropzone-content">
+                                        <div class="dropzone-icon">
+                                            <i class="bi bi-cloud-arrow-up"></i>
+                                        </div>
+                                        <h4>Drag & Drop your file here</h4>
+                                        <p class="text-muted">or click to browse</p>
+                                        <div class="supported-formats">
+                                            <span class="badge bg-dark">JPG</span>
+                                            <span class="badge bg-dark">PNG</span>
+                                            <span class="badge bg-dark">MP4</span>
+                                            <span class="badge bg-dark">AVI</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Preview -->
+                                <div class="file-preview d-none" id="filePreview">
+                                    <div class="preview-header">
+                                        <i class="bi bi-file-earmark-image text-primary"></i>
+                                        <span id="fileName">filename.jpg</span>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" id="removeFile">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </div>
+                                    <div class="preview-image" id="imagePreview"></div>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <button type="submit" class="btn btn-gradient-primary btn-lg w-100 mt-4" id="submitBtn" disabled>
+                                    <i class="bi bi-cpu me-2"></i>
+                                    Run Detection
+                                </button>
+                            </form>
+
+                            <!-- Progress -->
+                            <div class="progress-wrapper d-none" id="progressWrapper">
+                                <div class="progress-info">
+                                    <span>Processing...</span>
+                                    <span id="progressPercent">0%</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         id="progressBar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings -->
+                    <div class="col-lg-5">
+                        <div class="settings-card">
+                            <h4 class="mb-4">
+                                <i class="bi bi-sliders me-2"></i>
+                                Detection Settings
+                            </h4>
+
+                            <!-- NMS Method -->
+                            <div class="setting-group mb-4">
+                                <label class="form-label">NMS Method</label>
+                                <div class="nms-options">
+                                    <label class="nms-option">
+                                        <input type="radio" name="nms_method" value="standard" checked>
+                                        <div class="nms-card">
+                                            <i class="bi bi-box-seam"></i>
+                                            <span>Standard</span>
+                                        </div>
+                                    </label>
+                                    <label class="nms-option">
+                                        <input type="radio" name="nms_method" value="soft">
+                                        <div class="nms-card">
+                                            <i class="bi bi-layers-half"></i>
+                                            <span>Soft-NMS</span>
+                                        </div>
+                                    </label>
+                                    <label class="nms-option">
+                                        <input type="radio" name="nms_method" value="diou">
+                                        <div class="nms-card">
+                                            <i class="bi bi-bounding-box-circles"></i>
+                                            <span>DIoU-NMS</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Confidence Threshold -->
+                            <div class="setting-group mb-4">
+                                <div class="d-flex justify-content-between">
+                                    <label class="form-label">Confidence Threshold</label>
+                                    <span class="badge bg-primary" id="confidenceValue">0.25</span>
+                                </div>
+                                <input type="range" class="form-range" id="confidence" name="confidence" 
+                                       min="0.1" max="0.9" step="0.05" value="0.25">
+                                <div class="d-flex justify-content-between text-muted small">
+                                    <span>More Detections</span>
+                                    <span>Higher Confidence</span>
+                                </div>
+                            </div>
+
+                            <!-- IoU Threshold -->
+                            <div class="setting-group mb-4">
+                                <div class="d-flex justify-content-between">
+                                    <label class="form-label">IoU Threshold</label>
+                                    <span class="badge bg-info" id="iouValue">0.45</span>
+                                </div>
+                                <input type="range" class="form-range" id="iou_threshold" name="iou_threshold" 
+                                       min="0.1" max="0.9" step="0.05" value="0.45">
+                                <div class="d-flex justify-content-between text-muted small">
+                                    <span>More Suppression</span>
+                                    <span>Less Suppression</span>
+                                </div>
+                            </div>
+
+                            <!-- Sigma (for Soft-NMS) -->
+                            <div class="setting-group mb-4" id="sigmaGroup">
+                                <div class="d-flex justify-content-between">
+                                    <label class="form-label">Soft-NMS Sigma</label>
+                                    <span class="badge bg-success" id="sigmaValue">0.5</span>
+                                </div>
+                                <input type="range" class="form-range" id="sigma" name="sigma" 
+                                       min="0.1" max="1.0" step="0.1" value="0.5">
+                                <div class="d-flex justify-content-between text-muted small">
+                                    <span>Aggressive</span>
+                                    <span>Conservative</span>
+                                </div>
+                            </div>
+
+                            <!-- Target Classes -->
+                            <div class="setting-group">
+                                <label class="form-label">Target Classes</label>
+                                <div class="class-tags">
+                                    <label class="class-tag">
+                                        <input type="checkbox" name="classes" value="2" checked>
+                                        <span><i class="bi bi-car-front"></i> Cars</span>
+                                    </label>
+                                    <label class="class-tag">
+                                        <input type="checkbox" name="classes" value="0" checked>
+                                        <span><i class="bi bi-person"></i> Pedestrians</span>
+                                    </label>
+                                    <label class="class-tag">
+                                        <input type="checkbox" name="classes" value="1" checked>
+                                        <span><i class="bi bi-bicycle"></i> Bikes</span>
+                                    </label>
+                                    <label class="class-tag">
+                                        <input type="checkbox" name="classes" value="7" checked>
+                                        <span><i class="bi bi-truck"></i> Trucks</span>
+                                    </label>
+                                    <label class="class-tag">
+                                        <input type="checkbox" name="classes" value="5" checked>
+                                        <span><i class="bi bi-bus-front"></i> Bus</span>
+                                    </label>
+                                    <label class="class-tag">
+                                        <input type="checkbox" name="classes" value="9" checked>
+                                        <span><i class="bi bi-stoplights"></i> Traffic Lights</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const filePreview = document.getElementById('filePreview');
+    const fileName = document.getElementById('fileName');
+    const imagePreview = document.getElementById('imagePreview');
+    const removeFile = document.getElementById('removeFile');
+    const submitBtn = document.getElementById('submitBtn');
+    const uploadForm = document.getElementById('uploadForm');
+    const progressWrapper = document.getElementById('progressWrapper');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+
+    // Dropzone click
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    // Drag and drop
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect(e.dataTransfer.files[0]);
+        }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', function() {
+        if (this.files.length) {
+            handleFileSelect(this.files[0]);
+        }
+    });
+
+    function handleFileSelect(file) {
+        fileName.textContent = file.name;
+        dropzone.classList.add('d-none');
+        filePreview.classList.remove('d-none');
+        submitBtn.disabled = false;
+
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            imagePreview.innerHTML = `
+                <div class="video-preview">
+                    <i class="bi bi-film"></i>
+                    <span>Video: ${file.name}</span>
+                </div>
+            `;
+        }
+    }
+
+    // Remove file
+    removeFile.addEventListener('click', () => {
+        fileInput.value = '';
+        dropzone.classList.remove('d-none');
+        filePreview.classList.add('d-none');
+        imagePreview.innerHTML = '';
+        submitBtn.disabled = true;
+    });
+
+    // Range sliders
+    document.getElementById('confidence').addEventListener('input', function() {
+        document.getElementById('confidenceValue').textContent = this.value;
+    });
+
+    document.getElementById('iou_threshold').addEventListener('input', function() {
+        document.getElementById('iouValue').textContent = this.value;
+    });
+
+    document.getElementById('sigma').addEventListener('input', function() {
+        document.getElementById('sigmaValue').textContent = this.value;
+    });
+
+    // Form submit
+    uploadForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('nms_method', document.querySelector('input[name="nms_method"]:checked').value);
+        formData.append('confidence', document.getElementById('confidence').value);
+        formData.append('iou_threshold', document.getElementById('iou_threshold').value);
+        formData.append('sigma', document.getElementById('sigma').value);
+
+        submitBtn.disabled = true;
+        progressWrapper.classList.remove('d-none');
+
+        // Simulate progress
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            progressBar.style.width = progress + '%';
+            progressPercent.textContent = Math.round(progress) + '%';
+        }, 500);
+
+        try {
+            const response = await fetch('{% url "detection:detect" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            progressPercent.textContent = '100%';
+
+            const data = await response.json();
+
+            if (data.success) {
+                window.location.href = data.redirect_url;
+            } else {
+                alert('Error: ' + (data.error || 'Detection failed'));
+                submitBtn.disabled = false;
+                progressWrapper.classList.add('d-none');
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            alert('Error: ' + error.message);
+            submitBtn.disabled = false;
+            progressWrapper.classList.add('d-none');
+        }
+    });
+});
+</script>
+{% endblock %}

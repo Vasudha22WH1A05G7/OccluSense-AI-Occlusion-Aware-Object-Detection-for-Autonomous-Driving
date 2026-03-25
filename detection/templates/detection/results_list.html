@@ -1,0 +1,105 @@
+{% extends 'detection/base.html' %}
+{% load static %}
+
+{% block title %}Detection History{% endblock %}
+
+{% block content %}
+<section class="results-list-section py-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 mb-1">
+                    <i class="bi bi-collection text-gradient"></i>
+                    Detection History
+                </h1>
+                <p class="text-muted mb-0">Browse all your previous detection sessions</p>
+            </div>
+            <a href="{% url 'detection:upload' %}" class="btn btn-gradient-primary">
+                <i class="bi bi-plus-lg me-1"></i> New Detection
+            </a>
+        </div>
+
+        {% if sessions %}
+        <div class="row g-4">
+            {% for session in sessions %}
+            <div class="col-md-6 col-lg-4">
+                <a href="{% url 'detection:results' session.id %}" class="result-card-link">
+                    <div class="result-card h-100">
+                        {% if session.result_image %}
+                        <div class="result-image">
+                            <img src="/media/{{ session.result_image }}" alt="Detection result">
+                        </div>
+                        {% elif session.result_video %}
+                        <div class="result-image video-thumb">
+                            <i class="bi bi-play-circle"></i>
+                            <span>Video</span>
+                        </div>
+                        {% else %}
+                        <div class="result-image placeholder-img">
+                            <i class="bi bi-image"></i>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="result-info">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-{{ session.nms_method }}">{{ session.nms_method|upper }}</span>
+                                <span class="text-muted small">{{ session.created_at|timesince }} ago</span>
+                            </div>
+                            <div class="result-meta">
+                                <span><i class="bi bi-box"></i> {{ session.detections.count }} objects</span>
+                                <span><i class="bi bi-lightning"></i> {{ session.fps|floatformat:1 }} FPS</span>
+                                <span><i class="bi bi-clock"></i> {{ session.processing_time|floatformat:2 }}s</span>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <nav class="mt-5">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state text-center py-5">
+            <div class="empty-icon mb-4">
+                <i class="bi bi-inbox"></i>
+            </div>
+            <h3>No Detection History</h3>
+            <p class="text-muted mb-4">Upload an image or video to start detecting objects</p>
+            <a href="{% url 'detection:upload' %}" class="btn btn-gradient-primary">
+                <i class="bi bi-cloud-upload me-2"></i> Upload Now
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

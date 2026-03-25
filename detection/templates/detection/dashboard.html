@@ -1,0 +1,410 @@
+{% extends 'detection/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<section class="dashboard-section py-5">
+    <div class="container">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-5">
+            <div>
+                <h1 class="display-5 fw-bold mb-2">
+                    <i class="bi bi-speedometer2 text-gradient"></i>
+                    Analytics Dashboard
+                </h1>
+                <p class="text-muted">Performance metrics and detection statistics</p>
+            </div>
+            <a href="{% url 'detection:upload' %}" class="btn btn-gradient-primary">
+                <i class="bi bi-plus-lg me-1"></i> New Detection
+            </a>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-6 col-lg-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-gradient-primary">
+                        <i class="bi bi-collection"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">{{ total_sessions }}</span>
+                        <span class="stat-label">Total Sessions</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-gradient-success">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">{{ total_detections }}</span>
+                        <span class="stat-label">Total Detections</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-gradient-info">
+                        <i class="bi bi-lightning-charge"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="avgFps">--</span>
+                        <span class="stat-label">Avg FPS</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="stat-card">
+                    <div class="stat-icon bg-gradient-warning">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value" id="avgPrecision">--</span>
+                        <span class="stat-label">Avg Precision</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Performance Chart -->
+            <div class="col-lg-8">
+                <div class="chart-card h-100">
+                    <div class="chart-header">
+                        <h5><i class="bi bi-graph-up me-2"></i>Performance Over Time</h5>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-light active" data-metric="fps">FPS</button>
+                            <button class="btn btn-outline-light" data-metric="precision">Precision</button>
+                            <button class="btn btn-outline-light" data-metric="recall">Recall</button>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="performanceChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NMS Distribution -->
+            <div class="col-lg-4">
+                <div class="chart-card h-100">
+                    <div class="chart-header">
+                        <h5><i class="bi bi-pie-chart me-2"></i>NMS Method Usage</h5>
+                    </div>
+                    <div class="chart-body d-flex align-items-center justify-content-center">
+                        <canvas id="nmsChart" height="250"></canvas>
+                    </div>
+                    <div class="nms-legend">
+                        <div class="legend-item">
+                            <span class="dot" style="background: #6366f1"></span>
+                            <span>Standard: {{ nms_counts.standard }}</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="dot" style="background: #22c55e"></span>
+                            <span>Soft-NMS: {{ nms_counts.soft }}</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="dot" style="background: #06b6d4"></span>
+                            <span>DIoU-NMS: {{ nms_counts.diou }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mt-4">
+            <!-- Class Distribution -->
+            <div class="col-lg-6">
+                <div class="chart-card h-100">
+                    <div class="chart-header">
+                        <h5><i class="bi bi-bar-chart me-2"></i>Class Distribution</h5>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="classChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NMS Comparison -->
+            <div class="col-lg-6">
+                <div class="chart-card h-100">
+                    <div class="chart-header">
+                        <h5><i class="bi bi-columns-gap me-2"></i>NMS Performance Comparison</h5>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="comparisonChart" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detection Summary -->
+        <div class="row g-4 mt-4">
+            <div class="col-12">
+                <div class="summary-card">
+                    <h5 class="mb-4"><i class="bi bi-info-circle me-2"></i>Detection Summary</h5>
+                    <div class="row g-4">
+                        {% for class_name, count in class_distribution.items %}
+                        <div class="col-6 col-md-4 col-lg-2">
+                            <div class="class-stat">
+                                <div class="class-icon">
+                                    {% if class_name == 'car' %}
+                                    <i class="bi bi-car-front"></i>
+                                    {% elif class_name == 'person' %}
+                                    <i class="bi bi-person"></i>
+                                    {% elif class_name == 'bicycle' %}
+                                    <i class="bi bi-bicycle"></i>
+                                    {% elif class_name == 'truck' %}
+                                    <i class="bi bi-truck"></i>
+                                    {% elif class_name == 'bus' %}
+                                    <i class="bi bi-bus-front"></i>
+                                    {% elif class_name == 'motorcycle' %}
+                                    <i class="bi bi-scooter"></i>
+                                    {% else %}
+                                    <i class="bi bi-box"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="class-info">
+                                    <span class="count">{{ count }}</span>
+                                    <span class="name text-capitalize">{{ class_name }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center text-muted py-4">
+                            No detection data available yet.
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const performanceData = {{ performance_data|safe }};
+    const nmsData = {{ nms_counts_json|safe }};
+    const classData = {{ class_dist_json|safe }};
+
+    // Calculate averages
+    if (performanceData.length > 0) {
+        const avgFps = performanceData.reduce((a, b) => a + b.fps, 0) / performanceData.length;
+        const avgPrecision = performanceData.reduce((a, b) => a + b.precision, 0) / performanceData.length;
+        document.getElementById('avgFps').textContent = avgFps.toFixed(1);
+        document.getElementById('avgPrecision').textContent = (avgPrecision * 100).toFixed(0) + '%';
+    }
+
+    // Performance Chart
+    const perfCtx = document.getElementById('performanceChart').getContext('2d');
+    const performanceChart = new Chart(perfCtx, {
+        type: 'line',
+        data: {
+            labels: performanceData.map((_, i) => `Session ${i + 1}`),
+            datasets: [{
+                label: 'FPS',
+                data: performanceData.map(d => d.fps),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#9ca3af'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#9ca3af'
+                    }
+                }
+            }
+        }
+    });
+
+    // Metric toggle buttons
+    document.querySelectorAll('[data-metric]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('[data-metric]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            const metric = this.dataset.metric;
+            let data, label, color;
+            
+            switch(metric) {
+                case 'fps':
+                    data = performanceData.map(d => d.fps);
+                    label = 'FPS';
+                    color = '#6366f1';
+                    break;
+                case 'precision':
+                    data = performanceData.map(d => d.precision * 100);
+                    label = 'Precision (%)';
+                    color = '#22c55e';
+                    break;
+                case 'recall':
+                    data = performanceData.map(d => d.recall * 100);
+                    label = 'Recall (%)';
+                    color = '#f59e0b';
+                    break;
+            }
+            
+            performanceChart.data.datasets[0].data = data;
+            performanceChart.data.datasets[0].label = label;
+            performanceChart.data.datasets[0].borderColor = color;
+            performanceChart.data.datasets[0].backgroundColor = color + '20';
+            performanceChart.update();
+        });
+    });
+
+    // NMS Distribution Chart
+    const nmsCtx = document.getElementById('nmsChart').getContext('2d');
+    new Chart(nmsCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Standard', 'Soft-NMS', 'DIoU-NMS'],
+            datasets: [{
+                data: [nmsData.standard || 0, nmsData.soft || 0, nmsData.diou || 0],
+                backgroundColor: ['#6366f1', '#22c55e', '#06b6d4'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Class Distribution Chart
+    const classCtx = document.getElementById('classChart').getContext('2d');
+    new Chart(classCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(classData),
+            datasets: [{
+                label: 'Detections',
+                data: Object.values(classData),
+                backgroundColor: [
+                    '#6366f1', '#22c55e', '#f59e0b', '#ef4444', 
+                    '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6'
+                ],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#9ca3af'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#9ca3af'
+                    }
+                }
+            }
+        }
+    });
+
+    // Comparison Chart
+    const compCtx = document.getElementById('comparisonChart').getContext('2d');
+    new Chart(compCtx, {
+        type: 'radar',
+        data: {
+            labels: ['Detections', 'Precision', 'Recall', 'Speed', 'Occlusion Handling'],
+            datasets: [
+                {
+                    label: 'Standard NMS',
+                    data: [70, 85, 75, 95, 60],
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.2)'
+                },
+                {
+                    label: 'Soft-NMS',
+                    data: [85, 80, 88, 80, 85],
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.2)'
+                },
+                {
+                    label: 'DIoU-NMS',
+                    data: [80, 82, 85, 85, 95],
+                    borderColor: '#06b6d4',
+                    backgroundColor: 'rgba(6, 182, 212, 0.2)'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#9ca3af'
+                    }
+                }
+            },
+            scales: {
+                r: {
+                    angleLines: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    pointLabels: {
+                        color: '#9ca3af'
+                    },
+                    ticks: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

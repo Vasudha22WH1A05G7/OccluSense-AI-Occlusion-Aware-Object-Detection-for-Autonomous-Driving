@@ -1,0 +1,413 @@
+{% extends 'detection/base.html' %}
+{% load static %}
+
+{% block title %}Compare NMS Methods{% endblock %}
+
+{% block content %}
+<section class="compare-section py-5">
+    <div class="container">
+        <!-- Header -->
+        <div class="text-center mb-5">
+            <h1 class="display-5 fw-bold mb-3">
+                <i class="bi bi-columns-gap text-gradient"></i>
+                Compare NMS Methods
+            </h1>
+            <p class="lead text-muted">
+                Compare Standard NMS, Soft-NMS, and DIoU-NMS side-by-side on the same image
+            </p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-lg-8">
+                <div class="compare-upload-card">
+                    <form id="compareForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="dropzone-compact" id="dropzone">
+                            <input type="file" id="fileInput" name="file" accept="image/*" hidden>
+                            <div class="dropzone-content">
+                                <i class="bi bi-cloud-arrow-up"></i>
+                                <span>Drop an image or <strong>click to upload</strong></span>
+                            </div>
+                        </div>
+
+                        <div class="file-preview-compact d-none" id="filePreview">
+                            <img id="previewImage" src="" alt="Preview">
+                            <button type="button" class="btn btn-sm btn-danger remove-btn" id="removeFile">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+
+                        <!-- Settings Row -->
+                        <div class="settings-row mt-4">
+                            <div class="setting">
+                                <label>Confidence</label>
+                                <input type="range" id="confidence" name="confidence" 
+                                       min="0.1" max="0.9" step="0.05" value="0.25">
+                                <span id="confidenceValue">0.25</span>
+                            </div>
+                            <div class="setting">
+                                <label>IoU Threshold</label>
+                                <input type="range" id="iou_threshold" name="iou_threshold" 
+                                       min="0.1" max="0.9" step="0.05" value="0.45">
+                                <span id="iouValue">0.45</span>
+                            </div>
+                            <div class="setting">
+                                <label>Soft-NMS Sigma</label>
+                                <input type="range" id="sigma" name="sigma" 
+                                       min="0.1" max="1.0" step="0.1" value="0.5">
+                                <span id="sigmaValue">0.5</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-gradient-primary btn-lg w-100 mt-4" id="compareBtn" disabled>
+                            <i class="bi bi-columns-gap me-2"></i>
+                            Compare All NMS Methods
+                        </button>
+                    </form>
+
+                    <!-- Progress -->
+                    <div class="progress-wrapper d-none" id="progressWrapper">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progressBar" style="width: 0%"></div>
+                        </div>
+                        <span class="progress-text">Processing with all NMS methods...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="d-none">
+            <h3 class="text-center mb-4">
+                <i class="bi bi-check-circle text-success me-2"></i>
+                Comparison Results
+            </h3>
+
+            <!-- Comparison Grid -->
+            <div class="row g-4 mb-5">
+                <!-- Standard NMS -->
+                <div class="col-lg-4">
+                    <div class="compare-result-card" id="standardResult">
+                        <div class="card-header">
+                            <span class="badge bg-standard">Standard NMS</span>
+                            <span class="detection-count"><span id="standardCount">0</span> detections</span>
+                        </div>
+                        <div class="card-image">
+                            <img id="standardImage" src="" alt="Standard NMS Result">
+                        </div>
+                        <div class="card-stats">
+                            <div class="stat">
+                                <span class="label">Time</span>
+                                <span class="value" id="standardTime">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">FPS</span>
+                                <span class="value" id="standardFps">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Avg Conf</span>
+                                <span class="value" id="standardConf">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Soft-NMS -->
+                <div class="col-lg-4">
+                    <div class="compare-result-card featured" id="softResult">
+                        <div class="card-header">
+                            <span class="badge bg-soft">Soft-NMS</span>
+                            <span class="detection-count"><span id="softCount">0</span> detections</span>
+                        </div>
+                        <div class="card-image">
+                            <img id="softImage" src="" alt="Soft-NMS Result">
+                        </div>
+                        <div class="card-stats">
+                            <div class="stat">
+                                <span class="label">Time</span>
+                                <span class="value" id="softTime">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">FPS</span>
+                                <span class="value" id="softFps">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Avg Conf</span>
+                                <span class="value" id="softConf">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DIoU-NMS -->
+                <div class="col-lg-4">
+                    <div class="compare-result-card" id="diouResult">
+                        <div class="card-header">
+                            <span class="badge bg-diou">DIoU-NMS</span>
+                            <span class="detection-count"><span id="diouCount">0</span> detections</span>
+                        </div>
+                        <div class="card-image">
+                            <img id="diouImage" src="" alt="DIoU-NMS Result">
+                        </div>
+                        <div class="card-stats">
+                            <div class="stat">
+                                <span class="label">Time</span>
+                                <span class="value" id="diouTime">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">FPS</span>
+                                <span class="value" id="diouFps">--</span>
+                            </div>
+                            <div class="stat">
+                                <span class="label">Avg Conf</span>
+                                <span class="value" id="diouConf">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparison Charts -->
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5><i class="bi bi-bar-chart me-2"></i>Detection Count Comparison</h5>
+                        <canvas id="countChart" height="200"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="chart-card">
+                        <h5><i class="bi bi-speedometer2 me-2"></i>Processing Speed Comparison</h5>
+                        <canvas id="speedChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="comparison-summary mt-4">
+                <h5><i class="bi bi-trophy me-2"></i>Recommendation</h5>
+                <div id="summaryContent" class="summary-content">
+                    <!-- Filled dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const filePreview = document.getElementById('filePreview');
+    const previewImage = document.getElementById('previewImage');
+    const removeFile = document.getElementById('removeFile');
+    const compareBtn = document.getElementById('compareBtn');
+    const compareForm = document.getElementById('compareForm');
+    const progressWrapper = document.getElementById('progressWrapper');
+    const progressBar = document.getElementById('progressBar');
+    const resultsSection = document.getElementById('resultsSection');
+
+    // Dropzone events
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            handleFileSelect(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', function() {
+        if (this.files.length) handleFileSelect(this.files[0]);
+    });
+
+    function handleFileSelect(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImage.src = e.target.result;
+            dropzone.classList.add('d-none');
+            filePreview.classList.remove('d-none');
+            compareBtn.disabled = false;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    removeFile.addEventListener('click', () => {
+        fileInput.value = '';
+        dropzone.classList.remove('d-none');
+        filePreview.classList.add('d-none');
+        compareBtn.disabled = true;
+        resultsSection.classList.add('d-none');
+    });
+
+    // Range sliders
+    document.getElementById('confidence').addEventListener('input', function() {
+        document.getElementById('confidenceValue').textContent = this.value;
+    });
+    document.getElementById('iou_threshold').addEventListener('input', function() {
+        document.getElementById('iouValue').textContent = this.value;
+    });
+    document.getElementById('sigma').addEventListener('input', function() {
+        document.getElementById('sigmaValue').textContent = this.value;
+    });
+
+    // Form submit
+    compareForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('confidence', document.getElementById('confidence').value);
+        formData.append('iou_threshold', document.getElementById('iou_threshold').value);
+        formData.append('sigma', document.getElementById('sigma').value);
+
+        compareBtn.disabled = true;
+        progressWrapper.classList.remove('d-none');
+        resultsSection.classList.add('d-none');
+
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 10;
+            if (progress > 90) progress = 90;
+            progressBar.style.width = progress + '%';
+        }, 300);
+
+        try {
+            const response = await fetch('{% url "detection:compare_process" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+
+            const data = await response.json();
+
+            if (data.success) {
+                displayResults(data.results);
+            } else {
+                alert('Error: ' + (data.error || 'Comparison failed'));
+            }
+        } catch (error) {
+            clearInterval(progressInterval);
+            alert('Error: ' + error.message);
+        }
+
+        compareBtn.disabled = false;
+        progressWrapper.classList.add('d-none');
+    });
+
+    function displayResults(results) {
+        resultsSection.classList.remove('d-none');
+
+        // Update Standard NMS
+        document.getElementById('standardImage').src = results.standard.image_url;
+        document.getElementById('standardCount').textContent = results.standard.num_detections;
+        document.getElementById('standardTime').textContent = results.standard.processing_time_ms.toFixed(1) + 'ms';
+        document.getElementById('standardFps').textContent = results.standard.fps.toFixed(1);
+        document.getElementById('standardConf').textContent = (results.standard.avg_confidence * 100).toFixed(0) + '%';
+
+        // Update Soft-NMS
+        document.getElementById('softImage').src = results.soft.image_url;
+        document.getElementById('softCount').textContent = results.soft.num_detections;
+        document.getElementById('softTime').textContent = results.soft.processing_time_ms.toFixed(1) + 'ms';
+        document.getElementById('softFps').textContent = results.soft.fps.toFixed(1);
+        document.getElementById('softConf').textContent = (results.soft.avg_confidence * 100).toFixed(0) + '%';
+
+        // Update DIoU-NMS
+        document.getElementById('diouImage').src = results.diou.image_url;
+        document.getElementById('diouCount').textContent = results.diou.num_detections;
+        document.getElementById('diouTime').textContent = results.diou.processing_time_ms.toFixed(1) + 'ms';
+        document.getElementById('diouFps').textContent = results.diou.fps.toFixed(1);
+        document.getElementById('diouConf').textContent = (results.diou.avg_confidence * 100).toFixed(0) + '%';
+
+        // Charts
+        const countCtx = document.getElementById('countChart').getContext('2d');
+        new Chart(countCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Standard NMS', 'Soft-NMS', 'DIoU-NMS'],
+                datasets: [{
+                    label: 'Detections',
+                    data: [results.standard.num_detections, results.soft.num_detections, results.diou.num_detections],
+                    backgroundColor: ['#6366f1', '#22c55e', '#06b6d4'],
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                }
+            }
+        });
+
+        const speedCtx = document.getElementById('speedChart').getContext('2d');
+        new Chart(speedCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Standard NMS', 'Soft-NMS', 'DIoU-NMS'],
+                datasets: [{
+                    label: 'FPS',
+                    data: [results.standard.fps, results.soft.fps, results.diou.fps],
+                    backgroundColor: ['#6366f1', '#22c55e', '#06b6d4'],
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                }
+            }
+        });
+
+        // Summary
+        const methods = [
+            { name: 'Standard NMS', count: results.standard.num_detections, fps: results.standard.fps },
+            { name: 'Soft-NMS', count: results.soft.num_detections, fps: results.soft.fps },
+            { name: 'DIoU-NMS', count: results.diou.num_detections, fps: results.diou.fps }
+        ];
+
+        const mostDetections = methods.reduce((a, b) => a.count > b.count ? a : b);
+        const fastest = methods.reduce((a, b) => a.fps > b.fps ? a : b);
+
+        document.getElementById('summaryContent').innerHTML = `
+            <div class="summary-item">
+                <i class="bi bi-box-seam text-primary"></i>
+                <p><strong>${mostDetections.name}</strong> detected the most objects (${mostDetections.count} detections)</p>
+            </div>
+            <div class="summary-item">
+                <i class="bi bi-lightning text-success"></i>
+                <p><strong>${fastest.name}</strong> was the fastest at ${fastest.fps.toFixed(1)} FPS</p>
+            </div>
+            <div class="summary-item">
+                <i class="bi bi-layers-half text-info"></i>
+                <p>For occluded scenes, <strong>Soft-NMS</strong> or <strong>DIoU-NMS</strong> typically perform better by preserving overlapping detections</p>
+            </div>
+        `;
+
+        // Scroll to results
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+});
+</script>
+{% endblock %}

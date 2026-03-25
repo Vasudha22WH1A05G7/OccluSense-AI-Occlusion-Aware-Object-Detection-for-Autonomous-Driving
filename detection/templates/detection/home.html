@@ -1,0 +1,281 @@
+{% extends 'detection/base.html' %}
+{% load static %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="hero-bg">
+        <div class="hero-gradient"></div>
+        <div class="floating-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="row align-items-center min-vh-100 py-5">
+            <div class="col-lg-6">
+                <div class="hero-content">
+                    <div class="badge-wrapper mb-4">
+                        <span class="badge bg-gradient-primary px-3 py-2">
+                            <i class="bi bi-lightning-charge-fill me-1"></i>
+                            Powered by YOLOv8
+                        </span>
+                    </div>
+                    
+                    <h1 class="display-3 fw-bold mb-4">
+                        Occlusion-Aware
+                        <span class="text-gradient d-block">Object Detection</span>
+                    </h1>
+                    
+                    <p class="lead text-muted mb-5">
+                        Advanced object detection for autonomous driving with custom NMS algorithms. 
+                        Handle occluded objects with Soft-NMS and DIoU-NMS for superior detection accuracy.
+                    </p>
+                    
+                    <div class="d-flex gap-3 flex-wrap">
+                        <a href="{% url 'detection:upload' %}" class="btn btn-gradient-primary btn-lg">
+                            <i class="bi bi-cloud-upload me-2"></i>
+                            Start Detection
+                        </a>
+                        <a href="{% url 'detection:compare' %}" class="btn btn-outline-light btn-lg">
+                            <i class="bi bi-columns-gap me-2"></i>
+                            Compare NMS
+                        </a>
+                    </div>
+                    
+                    <!-- Feature Pills -->
+                    <div class="feature-pills mt-5">
+                        <div class="row g-3">
+                            <div class="col-auto">
+                                <div class="feature-pill">
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    <span>Pre-trained Models</span>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="feature-pill">
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    <span>Real-time Processing</span>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="feature-pill">
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    <span>Multiple NMS Methods</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="hero-visual">
+                    <div class="visual-card">
+                        <div class="visual-header">
+                            <div class="dot red"></div>
+                            <div class="dot yellow"></div>
+                            <div class="dot green"></div>
+                        </div>
+                        <div class="visual-content">
+                            <div class="detection-preview">
+                                <div class="preview-image">
+                                    <div class="bbox bbox-car"></div>
+                                    <div class="bbox bbox-person"></div>
+                                    <div class="bbox bbox-bike"></div>
+                                </div>
+                                <div class="detection-info">
+                                    <div class="info-item">
+                                        <span class="label">Detections</span>
+                                        <span class="value">12</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">Occluded</span>
+                                        <span class="value text-warning">3</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">FPS</span>
+                                        <span class="value text-success">45</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features-section py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold mb-3">
+                <span class="text-gradient">NMS Methods</span> for Occlusion Handling
+            </h2>
+            <p class="lead text-muted">
+                Choose the right algorithm for your detection scenario
+            </p>
+        </div>
+        
+        <div class="row g-4">
+            <!-- Standard NMS -->
+            <div class="col-lg-4">
+                <div class="feature-card h-100">
+                    <div class="feature-icon bg-gradient-primary">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                    <h3 class="h4 mt-4 mb-3">Standard NMS</h3>
+                    <p class="text-muted">
+                        Traditional Non-Maximum Suppression with hard thresholding. 
+                        Fast and efficient for well-separated objects.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="bi bi-check2"></i> Hard suppression</li>
+                        <li><i class="bi bi-check2"></i> Fastest processing</li>
+                        <li><i class="bi bi-check2"></i> IoU-based filtering</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Soft-NMS -->
+            <div class="col-lg-4">
+                <div class="feature-card h-100 featured">
+                    <div class="feature-badge">Recommended</div>
+                    <div class="feature-icon bg-gradient-success">
+                        <i class="bi bi-layers-half"></i>
+                    </div>
+                    <h3 class="h4 mt-4 mb-3">Soft-NMS</h3>
+                    <p class="text-muted">
+                        Gaussian decay instead of hard removal. Better handles 
+                        overlapping objects by reducing scores instead of eliminating.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="bi bi-check2"></i> Gaussian score decay</li>
+                        <li><i class="bi bi-check2"></i> Configurable sigma</li>
+                        <li><i class="bi bi-check2"></i> Better for crowds</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- DIoU-NMS -->
+            <div class="col-lg-4">
+                <div class="feature-card h-100">
+                    <div class="feature-icon bg-gradient-info">
+                        <i class="bi bi-bounding-box-circles"></i>
+                    </div>
+                    <h3 class="h4 mt-4 mb-3">DIoU-NMS</h3>
+                    <p class="text-muted">
+                        Distance-IoU considers center point distance. Ideal for 
+                        occluded objects where boxes overlap but centers are distant.
+                    </p>
+                    <ul class="feature-list">
+                        <li><i class="bi bi-check2"></i> Center distance aware</li>
+                        <li><i class="bi bi-check2"></i> Better occlusion handling</li>
+                        <li><i class="bi bi-check2"></i> Robust suppression</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats-section py-5">
+    <div class="container">
+        <div class="stats-card">
+            <div class="row g-4 text-center">
+                <div class="col-6 col-md-3">
+                    <div class="stat-item">
+                        <div class="stat-value">80+</div>
+                        <div class="stat-label">COCO Classes</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-item">
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">NMS Methods</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-item">
+                        <div class="stat-value">45+</div>
+                        <div class="stat-label">FPS Speed</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-item">
+                        <div class="stat-value">0%</div>
+                        <div class="stat-label">Training Required</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Recent Results -->
+{% if recent_sessions %}
+<section class="recent-section py-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="h3 mb-0">Recent Detections</h2>
+            <a href="{% url 'detection:results_list' %}" class="btn btn-outline-light btn-sm">
+                View All <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+        
+        <div class="row g-4">
+            {% for session in recent_sessions %}
+            <div class="col-md-6 col-lg-4">
+                <a href="{% url 'detection:results' session.id %}" class="result-card-link">
+                    <div class="result-card">
+                        {% if session.result_image %}
+                        <div class="result-image">
+                            <img src="/media/{{ session.result_image }}" alt="Detection result">
+                        </div>
+                        {% else %}
+                        <div class="result-image placeholder-img">
+                            <i class="bi bi-image"></i>
+                        </div>
+                        {% endif %}
+                        <div class="result-info">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-{{ session.nms_method }}">{{ session.nms_method|upper }}</span>
+                                <span class="text-muted small">{{ session.created_at|timesince }} ago</span>
+                            </div>
+                            <div class="result-stats mt-2">
+                                <span><i class="bi bi-box"></i> {{ session.detections.count }} objects</span>
+                                <span><i class="bi bi-lightning"></i> {{ session.fps|floatformat:1 }} FPS</span>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- CTA Section -->
+<section class="cta-section py-5">
+    <div class="container">
+        <div class="cta-card text-center">
+            <h2 class="display-6 fw-bold mb-3">Ready to Detect?</h2>
+            <p class="lead text-muted mb-4">
+                Upload your images or videos and see occlusion-aware detection in action
+            </p>
+            <a href="{% url 'detection:upload' %}" class="btn btn-gradient-primary btn-lg">
+                <i class="bi bi-cloud-upload me-2"></i>
+                Start Now
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

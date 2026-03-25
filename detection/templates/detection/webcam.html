@@ -1,0 +1,253 @@
+{% extends 'detection/base.html' %}
+{% load static %}
+
+{% block title %}Webcam Detection{% endblock %}
+
+{% block content %}
+<section class="webcam-section py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h1 class="display-5 fw-bold mb-3">
+                <i class="bi bi-webcam text-gradient"></i>
+                Real-time Webcam Detection
+            </h1>
+            <p class="lead text-muted">
+                Experience live object detection with occlusion-aware NMS
+            </p>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="webcam-card">
+                    <!-- Video Display -->
+                    <div class="video-container">
+                        <video id="webcam" autoplay playsinline></video>
+                        <canvas id="canvas" class="d-none"></canvas>
+                        <img id="resultFrame" class="d-none" alt="Detection result">
+                        
+                        <div class="video-overlay" id="overlay">
+                            <i class="bi bi-webcam-fill"></i>
+                            <p>Click "Start Detection" to begin</p>
+                        </div>
+
+                        <!-- Stats Overlay -->
+                        <div class="stats-overlay d-none" id="statsOverlay">
+                            <div class="stat">
+                                <i class="bi bi-box"></i>
+                                <span id="detectionCount">0</span>
+                            </div>
+                            <div class="stat">
+                                <i class="bi bi-lightning"></i>
+                                <span id="fpsCounter">0 FPS</span>
+                            </div>
+                            <div class="stat">
+                                <i class="bi bi-clock"></i>
+                                <span id="timeCounter">0 ms</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="webcam-controls">
+                        <div class="control-row">
+                            <!-- NMS Selection -->
+                            <div class="nms-select">
+                                <label class="nms-btn">
+                                    <input type="radio" name="nms_method" value="standard" checked>
+                                    <span>Standard</span>
+                                </label>
+                                <label class="nms-btn">
+                                    <input type="radio" name="nms_method" value="soft">
+                                    <span>Soft-NMS</span>
+                                </label>
+                                <label class="nms-btn">
+                                    <input type="radio" name="nms_method" value="diou">
+                                    <span>DIoU-NMS</span>
+                                </label>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="action-buttons">
+                                <button class="btn btn-gradient-primary" id="startBtn">
+                                    <i class="bi bi-play-fill me-1"></i> Start Detection
+                                </button>
+                                <button class="btn btn-outline-danger d-none" id="stopBtn">
+                                    <i class="bi bi-stop-fill me-1"></i> Stop
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Settings -->
+                        <div class="settings-row">
+                            <div class="setting">
+                                <label>Confidence <span id="confVal">0.25</span></label>
+                                <input type="range" id="confidence" min="0.1" max="0.9" step="0.05" value="0.25">
+                            </div>
+                            <div class="setting">
+                                <label>IoU <span id="iouVal">0.45</span></label>
+                                <input type="range" id="iou_threshold" min="0.1" max="0.9" step="0.05" value="0.45">
+                            </div>
+                            <div class="setting">
+                                <label>Sigma <span id="sigmaVal">0.5</span></label>
+                                <input type="range" id="sigma" min="0.1" max="1.0" step="0.1" value="0.5">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detection List -->
+                    <div class="detection-list d-none" id="detectionList">
+                        <h6><i class="bi bi-list-ul me-2"></i>Live Detections</h6>
+                        <div id="detectionItems"></div>
+                    </div>
+                </div>
+
+                <!-- Info Cards -->
+                <div class="row g-4 mt-4">
+                    <div class="col-md-4">
+                        <div class="info-card-sm">
+                            <i class="bi bi-shield-check text-success"></i>
+                            <h6>Privacy First</h6>
+                            <p class="small text-muted mb-0">Video is processed locally in your browser. No data is stored.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-card-sm">
+                            <i class="bi bi-lightning-charge text-warning"></i>
+                            <h6>Real-time Processing</h6>
+                            <p class="small text-muted mb-0">Each frame is sent to the server for detection and returned with annotations.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-card-sm">
+                            <i class="bi bi-gear text-info"></i>
+                            <h6>Configurable</h6>
+                            <p class="small text-muted mb-0">Adjust thresholds and NMS methods in real-time.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('canvas');
+    const resultFrame = document.getElementById('resultFrame');
+    const overlay = document.getElementById('overlay');
+    const statsOverlay = document.getElementById('statsOverlay');
+    const detectionList = document.getElementById('detectionList');
+    const detectionItems = document.getElementById('detectionItems');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    let stream = null;
+    let isRunning = false;
+    let animationId = null;
+
+    // Range sliders
+    document.getElementById('confidence').addEventListener('input', function() {
+        document.getElementById('confVal').textContent = this.value;
+    });
+    document.getElementById('iou_threshold').addEventListener('input', function() {
+        document.getElementById('iouVal').textContent = this.value;
+    });
+    document.getElementById('sigma').addEventListener('input', function() {
+        document.getElementById('sigmaVal').textContent = this.value;
+    });
+
+    startBtn.addEventListener('click', async function() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 640, height: 480 } 
+            });
+            video.srcObject = stream;
+            
+            video.classList.remove('d-none');
+            overlay.classList.add('d-none');
+            resultFrame.classList.remove('d-none');
+            statsOverlay.classList.remove('d-none');
+            detectionList.classList.remove('d-none');
+            
+            startBtn.classList.add('d-none');
+            stopBtn.classList.remove('d-none');
+            
+            isRunning = true;
+            processFrame();
+        } catch (err) {
+            alert('Could not access webcam: ' + err.message);
+        }
+    });
+
+    stopBtn.addEventListener('click', function() {
+        isRunning = false;
+        if (animationId) cancelAnimationFrame(animationId);
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        
+        video.classList.add('d-none');
+        resultFrame.classList.add('d-none');
+        overlay.classList.remove('d-none');
+        statsOverlay.classList.add('d-none');
+        detectionList.classList.add('d-none');
+        
+        startBtn.classList.remove('d-none');
+        stopBtn.classList.add('d-none');
+    });
+
+    async function processFrame() {
+        if (!isRunning) return;
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        const frameData = canvas.toDataURL('image/jpeg', 0.8);
+        
+        try {
+            const response = await fetch('{% url "api:detect_realtime" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    frame: frameData,
+                    nms_method: document.querySelector('input[name="nms_method"]:checked').value,
+                    confidence: parseFloat(document.getElementById('confidence').value),
+                    iou_threshold: parseFloat(document.getElementById('iou_threshold').value),
+                    sigma: parseFloat(document.getElementById('sigma').value)
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                resultFrame.src = data.annotated_frame;
+                document.getElementById('detectionCount').textContent = data.num_detections;
+                document.getElementById('fpsCounter').textContent = data.fps.toFixed(1) + ' FPS';
+                document.getElementById('timeCounter').textContent = data.processing_time_ms.toFixed(0) + ' ms';
+
+                // Update detection list
+                detectionItems.innerHTML = data.detections.slice(0, 5).map(det => `
+                    <div class="detection-item">
+                        <span class="class-name">${det.class_name}</span>
+                        <span class="confidence">${(det.confidence * 100).toFixed(0)}%</span>
+                        ${det.is_occluded ? '<span class="badge bg-warning">OCC</span>' : ''}
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Detection error:', error);
+        }
+
+        animationId = requestAnimationFrame(processFrame);
+    }
+});
+</script>
+{% endblock %}

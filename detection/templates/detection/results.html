@@ -1,0 +1,391 @@
+{% extends 'detection/base.html' %}
+{% load static %}
+
+{% block title %}Results - Session {{ session.id }}{% endblock %}
+
+{% block content %}
+<section class="results-section py-5">
+    <div class="container">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'detection:home' %}">Home</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'detection:results_list' %}">Results</a></li>
+                        <li class="breadcrumb-item active">Session {{ session.id }}</li>
+                    </ol>
+                </nav>
+                <h1 class="h2 mb-0">
+                    <i class="bi bi-eye text-gradient"></i>
+                    Detection Results
+                </h1>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'detection:upload' %}" class="btn btn-outline-light">
+                    <i class="bi bi-plus-lg me-1"></i> New Detection
+                </a>
+                <a href="{% url 'detection:compare' %}" class="btn btn-gradient-primary">
+                    <i class="bi bi-columns-gap me-1"></i> Compare NMS
+                </a>
+            </div>
+        </div>
+
+
+
+        {% if session.status == 'processing' or session.status == 'pending' %}
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h3 class="mt-4">Processing Media...</h3>
+            <p class="text-muted">
+                Please wait while we analyze your {{ session.media.media_type }}. <br>
+                This may take a few moments depending on the file size.
+            </p>
+            <script>
+                setTimeout(function() {
+                    window.location.reload();
+                }, 3000);
+            </script>
+        </div>
+        {% elif session.status == 'failed' %}
+        <div class="alert alert-danger text-center py-5">
+            <i class="bi bi-exclamation-triangle-fill display-1 text-danger mb-3"></i>
+            <h3>Analysis Failed</h3>
+            <p class="lead">{{ session.error_message }}</p>
+            <a href="{% url 'detection:upload' %}" class="btn btn-primary mt-3">Try Again</a>
+        </div>
+        {% else %}
+        <div class="row g-4">
+            <!-- Main Image/Video -->
+            <div class="col-lg-8">
+                <div class="result-main-card">
+                    <div class="result-header">
+                        <span class="badge bg-{{ session.nms_method }} me-2">{{ session.nms_method|upper }} NMS</span>
+                        <span class="text-muted">{{ session.created_at|date:"M d, Y H:i" }}</span>
+                    </div>
+                    
+                    <div class="result-media">
+                        {% if session.result_image %}
+                        <img src="/media/{{ session.result_image }}" alt="Detection result" class="img-fluid">
+                        {% elif session.result_video %}
+                        <video controls class="w-100">
+                            <source src="/media/{{ session.result_video }}" type="video/mp4">
+                        </video>
+                        {% else %}
+                        <div class="no-media">
+                            <i class="bi bi-image"></i>
+                            <p>No result image available</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="result-quick-stats">
+                        <div class="stat">
+                            <i class="bi bi-box text-primary"></i>
+                            <span class="value">{{ detections.count }}</span>
+                            <span class="label">Detections</span>
+                        </div>
+                        <div class="stat">
+                            <i class="bi bi-lightning text-success"></i>
+                            <span class="value">{{ session.fps|floatformat:1 }}</span>
+                            <span class="label">FPS</span>
+                        </div>
+                        <div class="stat">
+                            <i class="bi bi-clock text-info"></i>
+                            <span class="value">{{ session.processing_time|floatformat:2 }}s</span>
+                            <span class="label">Time</span>
+                        </div>
+                        <div class="stat">
+                            <i class="bi bi-layers-half text-warning"></i>
+                            <span class="value">{% for d in detections %}{% if d.is_occluded %}1{% endif %}{% endfor %}</span>
+                            <span class="label">Occluded</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Driving Analysis -->
+                {% if session.environment_warning or suggestions %}
+                <div class="result-analysis mt-4">
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-header border-secondary">
+                            <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>Driving Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if session.environment_warning %}
+                            <div class="alert alert-danger d-flex align-items-center mb-3">
+                                <i class="bi bi-exclamation-octagon-fill fs-4 me-3"></i>
+                                <div>
+                                    <strong>Environment Warning:</strong> {{ session.environment_warning }}
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if suggestions %}
+                            <h6 class="text-white-50 mb-2">Driving Suggestions:</h6>
+                            <ul class="list-group list-group-flush bg-transparent">
+                                {% for suggestion in suggestions %}
+                                <li class="list-group-item bg-transparent text-white border-secondary ps-0">
+                                    {% if "STOP" in suggestion or "CAUTION" in suggestion %}
+                                    <i class="bi bi-exclamation-circle text-danger me-2"></i>
+                                    {% else %}
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    {% endif %}
+                                    {{ suggestion }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Detections Table -->
+                <div class="detections-card mt-4">
+                    <div class="card-header-custom">
+                        <h5><i class="bi bi-list-ul me-2"></i>Detected Objects</h5>
+                        <span class="badge bg-primary">{{ detections.count }} total</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Class</th>
+                                    <th>Confidence</th>
+                                    <th>Bounding Box</th>
+                                    <th>Occluded</th>
+                                    <th>Occlusion Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for det in detections %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <span class="class-badge class-{{ det.class_name|lower }}">
+                                            {{ det.class_name }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="confidence-bar">
+                                            <div class="bar" style="width: {{ det.confidence|floatformat:0 }}%"></div>
+                                            <span>{{ det.confidence|floatformat:2 }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="font-monospace small">
+                                        [{{ det.bbox_x1|floatformat:0 }}, {{ det.bbox_y1|floatformat:0 }}, 
+                                         {{ det.bbox_x2|floatformat:0 }}, {{ det.bbox_y2|floatformat:0 }}]
+                                    </td>
+                                    <td>
+                                        {% if det.is_occluded %}
+                                        <span class="badge bg-warning"><i class="bi bi-exclamation-triangle"></i> Yes</span>
+                                        {% else %}
+                                        <span class="badge bg-success"><i class="bi bi-check"></i> No</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ det.occlusion_score|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        No objects detected
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Session Info -->
+                <div class="info-card mb-4">
+                    <h5><i class="bi bi-info-circle me-2"></i>Session Details</h5>
+                    <div class="info-list">
+                        <div class="info-item">
+                            <span class="label">Session ID</span>
+                            <span class="value">{{ session.id }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Media Type</span>
+                            <span class="value text-capitalize">{{ session.media.media_type }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Original File</span>
+                            <span class="value text-truncate">{{ session.media.original_filename }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">NMS Method</span>
+                            <span class="value">
+                                <span class="badge bg-{{ session.nms_method }}">{{ session.nms_method|upper }}</span>
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Confidence Threshold</span>
+                            <span class="value">{{ session.confidence_threshold }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">IoU Threshold</span>
+                            <span class="value">{{ session.iou_threshold }}</span>
+                        </div>
+                        {% if session.nms_method == 'soft' %}
+                        <div class="info-item">
+                            <span class="label">Soft-NMS Sigma</span>
+                            <span class="value">{{ session.soft_nms_sigma }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Metrics -->
+                {% if metrics %}
+                <div class="metrics-card mb-4">
+                    <h5><i class="bi bi-graph-up me-2"></i>Performance Metrics</h5>
+                    
+                    <div class="metric-grid">
+                        <div class="metric-item">
+                            <div class="metric-circle" style="--value: {{ metrics.precision|floatformat:0 }}">
+                                <svg viewBox="0 0 36 36">
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                          fill="none" stroke="#333" stroke-width="3"/>
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                          fill="none" stroke="url(#gradient-precision)" stroke-width="3"
+                                          stroke-dasharray="{{ metrics.precision|floatformat:0 }}, 100"/>
+                                </svg>
+                                <span>{{ metrics.precision|floatformat:2 }}</span>
+                            </div>
+                            <span class="metric-label">Precision</span>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-circle">
+                                <svg viewBox="0 0 36 36">
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                          fill="none" stroke="#333" stroke-width="3"/>
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                          fill="none" stroke="url(#gradient-recall)" stroke-width="3"
+                                          stroke-dasharray="{{ metrics.recall|floatformat:0 }}, 100"/>
+                                </svg>
+                                <span>{{ metrics.recall|floatformat:2 }}</span>
+                            </div>
+                            <span class="metric-label">Recall</span>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-circle">
+                                <svg viewBox="0 0 36 36">
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                          fill="none" stroke="#333" stroke-width="3"/>
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                          fill="none" stroke="url(#gradient-f1)" stroke-width="3"
+                                          stroke-dasharray="{{ metrics.f1_score|floatformat:0 }}, 100"/>
+                                </svg>
+                                <span>{{ metrics.f1_score|floatformat:2 }}</span>
+                            </div>
+                            <span class="metric-label">F1 Score</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-list mt-3">
+                        <div class="metric-row">
+                            <span>Avg Confidence</span>
+                            <span>{{ metrics.avg_confidence|floatformat:2 }}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span>Inference Time</span>
+                            <span>{{ metrics.inference_time|floatformat:1 }} ms</span>
+                        </div>
+                        <div class="metric-row">
+                            <span>NMS Time</span>
+                            <span>{{ metrics.nms_time|floatformat:1 }} ms</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Class Distribution Chart -->
+                <div class="chart-card">
+                    <h5><i class="bi bi-pie-chart me-2"></i>Class Distribution</h5>
+                    <canvas id="classChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+<!-- SVG Gradients -->
+<svg style="position: absolute; width: 0; height: 0;">
+    <defs>
+        <linearGradient id="gradient-precision" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#6366f1"/>
+            <stop offset="100%" style="stop-color:#8b5cf6"/>
+        </linearGradient>
+        <linearGradient id="gradient-recall" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#22c55e"/>
+            <stop offset="100%" style="stop-color:#10b981"/>
+        </linearGradient>
+        <linearGradient id="gradient-f1" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#f59e0b"/>
+            <stop offset="100%" style="stop-color:#f97316"/>
+        </linearGradient>
+    </defs>
+</svg>
+</svg>
+{% endif %}
+
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Class distribution chart
+    const detections = {{ detections_json|safe }};
+    const classCounts = {};
+    
+    detections.forEach(det => {
+        classCounts[det.class_name] = (classCounts[det.class_name] || 0) + 1;
+    });
+
+    const ctx = document.getElementById('classChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(classCounts),
+            datasets: [{
+                data: Object.values(classCounts),
+                backgroundColor: [
+                    '#6366f1',
+                    '#22c55e',
+                    '#f59e0b',
+                    '#ef4444',
+                    '#06b6d4',
+                    '#8b5cf6',
+                    '#ec4899',
+                    '#14b8a6'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#9ca3af',
+                        padding: 15
+                    }
+                }
+            },
+            cutout: '60%'
+        }
+    });
+});
+</script>
+{% endblock %}
